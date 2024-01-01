@@ -13,3 +13,4 @@ Assuming that a device is set up that is producing Modbus datapoints to the Netw
 3. Make sure the format is set to json
 4. Set 'Send as object' to True.
 
+Datapoints sent from the HTTP service will be stored in memory and exposed at '/metrics' 
