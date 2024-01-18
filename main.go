@@ -50,7 +50,32 @@ type ModbusPayload struct {
 	Modbus ModbusRecord `json:"Modbus"`
 }
 
+func setUptime(status float64, unit string) {
+	fmt.Printf("Setting uptime for unit: %s", unit)
+	uniqueUpKey := fmt.Sprintf("%s{unit=\"%s\"}", "UP", unit)
+	metrics[uniqueUpKey] = status
+}
+
+func handleUptime(ticker *time.Ticker, lastUpdate *time.Time) {
+
+	for {
+		<-ticker.C
+		fmt.Println(lastUpdate)
+		// if the last update happened within the last 5 minutes, its still up.
+		currentTime := time.Now()
+
+		if currentTime.Add(-1*time.Minute).Unix() > lastUpdate.Unix() {
+			fmt.Println("Last update was longer than 5 min ago, assume it is down")
+			setUptime(0, "1") // Hardcoded Unit = 1 for now
+		}
+	}
+}
+
 func main() {
+
+	var lastUpdate time.Time
+
+	ticker := time.NewTicker(1 * time.Second)
 	app := fiber.New()
 
 	// Handle incoming metrics
@@ -96,11 +121,16 @@ func main() {
 		}
 
 		// // Construct a unique key with unit and metric
+		fmt.Printf("Unit: %s", metric.Unit)
 		uniqueKey := fmt.Sprintf("%s{unit=\"%s\"}", metric.Metric, metric.Unit)
 		if metric.Unit != "0" {
 			metrics[uniqueKey] = metric.Value
 			fmt.Printf("Metric updated: %s = %f\n", uniqueKey, metric.Value)
 		}
+
+		setUptime(1, metric.Unit)
+
+		lastUpdate = time.Now()
 
 		return nil
 	})
@@ -113,6 +143,8 @@ func main() {
 		}
 		return c.SendString(response)
 	})
+
+	go handleUptime(ticker, &lastUpdate)
 
 	log.Fatal(app.Listen(":3000"))
 }
